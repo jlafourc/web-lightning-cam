@@ -1,0 +1,18 @@
+{
+  "id": "./",
+  "name": "Lightning Cam",
+  "short_name": "Lightning",
+  "description": "Détecte et capture les éclairs localement sur ton iPhone.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#05070a",
+  "theme_color": "#05070a",
+  "categories": ["photo", "utilities"],
+  "icons": [
+    { "src": "./icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "./icons/maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
