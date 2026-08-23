@@ -1,0 +1,13 @@
+:root {
+  color-scheme: dark;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+  background: #05070a;
+  color: #f6f7f9;
+  font-synthesis: none;
+}
+
+* { box-sizing: border-box; }
+html, body, #app { min-height: 100%; margin: 0; }
+body { min-height: 100dvh; background: #05070a; }
+button, input { font: inherit; }
+.boot { margin: 0; padding: 40vh 1.5rem 0; text-align: center; color: #929aa6; }
