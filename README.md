@@ -1,5 +1,7 @@
 # Lightning Cam
 
+> A native Android MVP now lives in [`android/`](android/README.md). The original iPhone/iPad PWA remains available below.
+
 Lightning Cam est une PWA expérimentale pour photographier les orages de nuit avec un iPhone 16 Pro. Elle détecte localement les hausses brutales de luminosité, conserve une trame vidéo, demande une photo haute définition à Safari et enregistre un court clip autour de l’éclair.
 
 ## Utilisation sur iPhone
