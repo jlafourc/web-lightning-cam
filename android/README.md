@@ -1,6 +1,6 @@
 # Lightning Cam Android
 
-Native Android MVP optimized for fast nighttime lightning detection. It analyzes the CameraX Y plane on a dedicated executor using `STRATEGY_KEEP_ONLY_LATEST`, captures a low-latency JPEG, and stops/finalizes the active MP4 clip after the trigger.
+Native Android MVP optimized for fast nighttime lightning detection. It analyzes the CameraX Y plane on a dedicated executor using `STRATEGY_KEEP_ONLY_LATEST`, preserves the exact triggering luminance frame as a grayscale JPEG, and stops/finalizes the active MP4 clip after the trigger.
 
 ## Build
 
@@ -32,7 +32,8 @@ Captured media is stored through MediaStore in:
 ## Current MVP limits
 
 - Detector settings are fixed conservative defaults pending real Pixel measurements.
-- Video begins when the camera session is armed and is finalized 1.2 seconds after a trigger; the next segment starts immediately.
+- Video rotates every four seconds, keeping at most one unused segment, and is finalized 1.2 seconds after a trigger; the next segment starts immediately.
+- Trigger photographs use the low-latency analysis resolution (target 640×480) and are grayscale in this first build. They favor capturing the bolt itself over a delayed full-resolution color image.
 - Event metadata is kept in memory during the session. Media itself remains in the system gallery.
-- Manual Camera2 exposure mapping is modeled and tested but is not yet exposed in the first UI.
+- Automatic exposure compensation is biased one stop darker when supported to reduce clipping/noise. Manual Camera2 controls are modeled but not yet exposed in the first UI.
 - An iPhone client is not included; the detector module has no Android dependency so it can later be moved to Kotlin Multiplatform or ported to Swift.

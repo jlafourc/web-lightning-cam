@@ -31,6 +31,27 @@ class YPlaneSamplerTest {
 
         val sampled = YPlaneSampler.sample(bytes, 4, 4, 4, 1, 2, 2, 1)
 
-        assertEquals(listOf(0, 2, 8, 10), sampled.pixels.toList())
+        assertEquals(listOf(4, 6, 12, 14), sampled.pixels.toList())
+    }
+
+    @Test
+    fun `keeps a thin two-pixel bolt between old point samples`() {
+        val bytes = ByteArray(64) { 10 }
+        bytes[2 * 8 + 3] = 240.toByte()
+        bytes[3 * 8 + 3] = 240.toByte()
+
+        val sampled = YPlaneSampler.sample(bytes, 8, 8, 8, 1, 2, 2, 1)
+
+        assertEquals(240, sampled.pixels.max())
+    }
+
+    @Test
+    fun `rejects a lone hot pixel inside a tile`() {
+        val bytes = ByteArray(16) { 10 }
+        bytes[5] = 255.toByte()
+
+        val sampled = YPlaneSampler.sample(bytes, 4, 4, 4, 1, 1, 1, 1)
+
+        assertEquals(10, sampled.pixels.single())
     }
 }

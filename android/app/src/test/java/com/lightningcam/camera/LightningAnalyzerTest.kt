@@ -19,15 +19,38 @@ class LightningAnalyzerTest {
         assertEquals(1, analyzer.diagnostics().errors)
     }
 
+    @Test
+    fun `returns exact trigger frame and measured latency`() {
+        var triggerWidth = 0
+        var latency = -1.0
+        val detector = LightningDetector(
+            DetectionConfig(
+                warmupFrames = 1,
+                globalMeanDelta = 20.0,
+                globalChangedRatio = 0.2,
+            ),
+        )
+        val analyzer = LightningAnalyzer(detector) { _, frame, measuredLatency ->
+            triggerWidth = frame.width
+            latency = measuredLatency
+        }
+        analyzer.analyze(TestFrameInput(ByteArray(16) { 10 }, {}))
+        analyzer.analyze(TestFrameInput(ByteArray(16) { 100 }, {}))
+
+        assertEquals(4, triggerWidth)
+        assertTrue(latency >= 0.0)
+    }
+
     private class TestFrameInput(
-        override val bytes: ByteArray,
+        private val bytes: ByteArray,
         private val closeAction: () -> Unit,
     ) : LuminanceInput {
-        override val width = 2
-        override val height = 2
-        override val rowStride = 2
+        override val width = if (bytes.isEmpty()) 2 else 4
+        override val height = if (bytes.isEmpty()) 2 else 4
+        override val rowStride = if (bytes.isEmpty()) 2 else 4
         override val pixelStride = 1
         override val timestampMs = 1L
+        override fun luminanceAt(byteIndex: Int): Int = bytes[byteIndex].toInt() and 0xff
         override fun close() = closeAction()
     }
 }

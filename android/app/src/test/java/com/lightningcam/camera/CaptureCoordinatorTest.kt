@@ -33,13 +33,26 @@ class CaptureCoordinatorTest {
         assertEquals(null, repository.events().single().videoUri)
     }
 
+    @Test
+    fun `allows a later capture after capture failure`() {
+        val capture = FakeCapturePort()
+        val coordinator = CaptureCoordinator(capture, InMemoryEventRepository()) { 10L }
+        val trigger = DetectionResult(TriggerType.GLOBAL, 50.0, 60.0, 0.8, true)
+        coordinator.onDetection(trigger, 2.0)
+        capture.complete(null)
+
+        coordinator.onDetection(trigger, 2.0)
+
+        assertEquals(2, capture.requests)
+    }
+
     private class FakeCapturePort : CapturePort {
         var requests = 0
-        private var completion: ((CaptureOutcome) -> Unit)? = null
-        override fun capture(completion: (CaptureOutcome) -> Unit) {
+        private var completion: ((CaptureOutcome?) -> Unit)? = null
+        override fun capture(completion: (CaptureOutcome?) -> Unit) {
             requests++
             this.completion = completion
         }
-        fun complete(outcome: CaptureOutcome) = completion?.invoke(outcome) ?: Unit
+        fun complete(outcome: CaptureOutcome?) = completion?.invoke(outcome) ?: Unit
     }
 }

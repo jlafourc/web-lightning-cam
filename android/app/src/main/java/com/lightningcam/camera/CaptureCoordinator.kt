@@ -7,7 +7,7 @@ import com.lightningcam.storage.LightningEvent
 data class CaptureOutcome(val photoUri: String, val videoUri: String?)
 
 fun interface CapturePort {
-    fun capture(completion: (CaptureOutcome) -> Unit)
+    fun capture(completion: (CaptureOutcome?) -> Unit)
 }
 
 class CaptureCoordinator(
@@ -23,7 +23,7 @@ class CaptureCoordinator(
         capturing = true
         val timestamp = clockMs()
         capturePort.capture { outcome ->
-            repository.save(
+            if (outcome != null) repository.save(
                 LightningEvent(
                     id = timestamp,
                     timestampMs = timestamp,
