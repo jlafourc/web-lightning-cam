@@ -55,6 +55,7 @@ class AndroidCameraSession(
     private var pendingVideoUri: String? = null
     private var videoFinalized = false
     private var lastRotatedVideoUri: String? = null
+    private var boundaryTriggerVideoUri: String? = null
     private var stopReason: StopReason? = null
     private val rotationRunnable = object : Runnable {
         override fun run() {
@@ -133,6 +134,7 @@ class AndroidCameraSession(
         handler.removeCallbacks(rotationRunnable)
         pendingPhotoUri = null
         pendingVideoUri = null
+        boundaryTriggerVideoUri = null
         videoFinalized = !videoAvailable
         val frame = triggerFrame
         triggerFrame = null
@@ -177,11 +179,16 @@ class AndroidCameraSession(
                     return@start
                 }
                 if (finalizedReason == StopReason.EVENT) {
-                    pendingVideoUri = finalizedUri
+                    val selection = EventVideoSelector.select(boundaryTriggerVideoUri, finalizedUri)
+                    selection.discardUri?.let { context.contentResolver.delete(android.net.Uri.parse(it), null, null) }
+                    pendingVideoUri = selection.retainedUri
+                    boundaryTriggerVideoUri = null
                     videoFinalized = true
                     lastRotatedVideoUri?.let { context.contentResolver.delete(android.net.Uri.parse(it), null, null) }
                     lastRotatedVideoUri = null
                     finishIfReady()
+                } else if (finalizedReason == StopReason.ROTATION && completion != null) {
+                    boundaryTriggerVideoUri = finalizedUri
                 } else {
                     lastRotatedVideoUri?.let { context.contentResolver.delete(android.net.Uri.parse(it), null, null) }
                     lastRotatedVideoUri = finalizedUri
@@ -255,6 +262,7 @@ class AndroidCameraSession(
         stopReason = StopReason.CLOSE
         recording?.stop()
         lastRotatedVideoUri?.let { context.contentResolver.delete(android.net.Uri.parse(it), null, null) }
+        boundaryTriggerVideoUri?.let { context.contentResolver.delete(android.net.Uri.parse(it), null, null) }
         analysisExecutor.shutdown()
     }
 

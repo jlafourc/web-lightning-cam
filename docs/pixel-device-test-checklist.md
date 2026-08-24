@@ -11,8 +11,9 @@
 - Put the Pixel on a stable support in a dark room.
 - Use another display for a short lightning clip; avoid filling the whole field with the display.
 - Confirm a narrow bolt triggers within one visible frame without repeated captures for the same flash.
-- Confirm the JPEG opens from `Pictures/LightningCam`.
+- Confirm the grayscale JPEG opens from `Pictures/LightningCam` and contains the triggering bolt rather than the scene after it.
 - Confirm the MP4 opens from `Movies/LightningCam` and has a duration greater than zero.
+- If a trigger lands exactly during a four-second segment rotation, confirm the retained MP4 contains the bolt rather than only the aftermath.
 
 ## Outdoor storm test
 
