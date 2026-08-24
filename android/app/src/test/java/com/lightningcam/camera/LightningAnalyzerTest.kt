@@ -41,6 +41,32 @@ class LightningAnalyzerTest {
         assertTrue(latency >= 0.0)
     }
 
+    @Test
+    fun `publishes periodic diagnostics with detector scores`() {
+        var reported: AnalyzerDiagnostics? = null
+        val detector = LightningDetector(
+            DetectionConfig(
+                warmupFrames = 1,
+                globalMeanDelta = 20.0,
+                globalChangedRatio = 0.2,
+            ),
+        )
+        val analyzer = LightningAnalyzer(
+            detector = detector,
+            diagnosticsEveryFrames = 2,
+            onDiagnostics = { reported = it },
+        )
+
+        analyzer.analyze(TestFrameInput(ByteArray(16) { 10 }, {}))
+        analyzer.analyze(TestFrameInput(ByteArray(16) { 100.toByte() }, {}))
+
+        val diagnostics = requireNotNull(reported)
+        assertEquals(2, diagnostics.frames)
+        assertTrue(diagnostics.globalScore > 0.0)
+        assertTrue(diagnostics.localizedScore > 0.0)
+        assertTrue(diagnostics.changedPixelRatio > 0.0)
+    }
+
     private class TestFrameInput(
         private val bytes: ByteArray,
         private val closeAction: () -> Unit,

@@ -34,9 +34,11 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.lightningcam.camera.AndroidCameraSession
+import com.lightningcam.camera.AnalyzerDiagnostics
 import com.lightningcam.camera.CaptureCoordinator
 import com.lightningcam.camera.CapturePort
 import com.lightningcam.storage.InMemoryEventRepository
+import java.util.Locale
 
 @Composable
 fun LightningCamApp() {
@@ -47,6 +49,9 @@ fun LightningCamApp() {
         }
         var armed by remember { mutableStateOf(true) }
         var status by remember { mutableStateOf("Initialisation caméra…") }
+        var diagnostics by remember {
+            mutableStateOf(AnalyzerDiagnostics(0, 0, 0.0, 0.0, 0.0, 0.0))
+        }
         val armedNow by rememberUpdatedState(armed)
         val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
             permissionGranted = it
@@ -70,6 +75,7 @@ fun LightningCamApp() {
                     lifecycleOwner = lifecycleOwner,
                     previewView = previewView,
                     onDetection = { result, latency -> if (armedNow) coordinator.onDetection(result, latency) },
+                    onDiagnostics = { diagnostics = it },
                     onStatus = { status = it },
                 )
                 session.bind()
@@ -87,7 +93,25 @@ fun LightningCamApp() {
                 ) {
                     Text("LIGHTNING CAM · NATIVE", style = MaterialTheme.typography.titleMedium)
                     Text(status, style = MaterialTheme.typography.bodySmall)
-                    Text("Détection YUV · dernière frame prioritaire", style = MaterialTheme.typography.labelSmall)
+                    Text(
+                        String.format(
+                            Locale.US,
+                            "Terrain · %,d images · %.1f ms",
+                            diagnostics.frames,
+                            diagnostics.lastLatencyMs,
+                        ),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                    Text(
+                        String.format(
+                            Locale.US,
+                            "G %.1f/12 · L %.1f/30 · Δ %.2f%%",
+                            diagnostics.globalScore,
+                            diagnostics.localizedScore,
+                            diagnostics.changedPixelRatio * 100.0,
+                        ),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
                 }
                 Row(
                     modifier = Modifier

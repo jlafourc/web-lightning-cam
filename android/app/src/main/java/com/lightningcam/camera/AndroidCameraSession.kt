@@ -37,6 +37,7 @@ class AndroidCameraSession(
     private val lifecycleOwner: LifecycleOwner,
     private val previewView: PreviewView,
     private val onDetection: (com.lightningcam.detector.DetectionResult, Double) -> Unit,
+    private val onDiagnostics: (AnalyzerDiagnostics) -> Unit,
     private val onStatus: (String) -> Unit,
 ) : CapturePort {
     private enum class StopReason { ROTATION, EVENT, CLOSE }
@@ -68,10 +69,14 @@ class AndroidCameraSession(
         }
     }
     @Volatile private var triggerFrame: LuminanceFrame? = null
-    private val analyzer = LightningAnalyzer(LightningDetector(DetectionConfig())) { result, frame, latency ->
-        triggerFrame = frame
-        mainExecutor.execute { onDetection(result, latency) }
-    }
+    private val analyzer = LightningAnalyzer(
+        detector = LightningDetector(DetectionConfig.field()),
+        onDiagnostics = { diagnostics -> mainExecutor.execute { onDiagnostics(diagnostics) } },
+        onTrigger = { result, frame, latency ->
+            triggerFrame = frame
+            mainExecutor.execute { onDetection(result, latency) }
+        },
+    )
 
     fun bind() {
         val providerFuture = ProcessCameraProvider.getInstance(context)

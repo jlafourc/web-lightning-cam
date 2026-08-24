@@ -65,6 +65,24 @@ class LightningDetectorTest {
     }
 
     @Test
+    fun `field profile detects a distant localized flash ignored by defaults`() {
+        val normal = LightningDetector(DetectionConfig())
+        val field = LightningDetector(DetectionConfig.field())
+        val baseline = frame(fill = 20, timestampMs = 0)
+        repeat(12) { index ->
+            normal.analyze(baseline.copy(timestampMs = index * 10L))
+            field.analyze(baseline.copy(timestampMs = index * 10L))
+        }
+        val pixels = IntArray(1_000) { 20 }.also { values ->
+            repeat(20) { values[it * 50] = 55 }
+        }
+        val flash = LuminanceFrame(50, 20, pixels, 200)
+
+        assertNull(normal.analyze(flash).trigger)
+        assertEquals(TriggerType.LOCALIZED, field.analyze(flash).trigger)
+    }
+
+    @Test
     fun `suppresses triggers during refractory period`() {
         val detector = warmedDetector()
 

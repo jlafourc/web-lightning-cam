@@ -10,6 +10,17 @@ data class DetectionConfig(
     val refractoryMs: Long = 650,
     val baselineAlpha: Double = 0.05,
 ) {
+    companion object {
+        fun field() = DetectionConfig(
+            globalMeanDelta = 12.0,
+            globalChangedRatio = 0.08,
+            localizedMeanDelta = 30.0,
+            localizedChangedRatio = 0.008,
+            pixelDelta = 28,
+            baselineAlpha = 0.03,
+        )
+    }
+
     init {
         require(warmupFrames > 0)
         require(globalChangedRatio in 0.0..1.0)
