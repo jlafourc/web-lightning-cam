@@ -38,6 +38,36 @@ describe('LightningDetector', () => {
     expect(detector.analyze(localized, 66).detected).toBe(true);
   });
 
+  test('detects a narrow high-contrast bolt without a global brightness jump', () => {
+    const detector = new LightningDetector({ calibrationFrames: 2 });
+    detector.analyze(frame(10, 1000), 0);
+    detector.analyze(frame(10, 1000), 33);
+    const narrowBolt = frame(10, 1000);
+    narrowBolt.fill(230, 420, 440);
+    const result = detector.analyze(narrowBolt, 66);
+    expect(result.delta).toBeLessThan(result.threshold);
+    expect(result.detected).toBe(true);
+    expect(result.trigger).toBe('localized');
+  });
+
+  test('ignores an isolated hot pixel', () => {
+    const detector = new LightningDetector({ calibrationFrames: 2 });
+    detector.analyze(frame(10, 1000), 0);
+    detector.analyze(frame(10, 1000), 33);
+    const hotPixel = frame(10, 1000);
+    hotPixel[500] = 255;
+    expect(detector.analyze(hotPixel, 66).detected).toBe(false);
+  });
+
+  test('ignores a stable bright object', () => {
+    const detector = new LightningDetector({ calibrationFrames: 2 });
+    const scene = frame(10, 1000);
+    scene.fill(220, 400, 430);
+    detector.analyze(scene, 0);
+    detector.analyze(scene, 33);
+    expect(detector.analyze(scene, 66).detected).toBe(false);
+  });
+
   test('higher sensitivity detects a smaller brightness jump', () => {
     const low = new LightningDetector({ calibrationFrames: 2, sensitivity: 0.1 });
     const high = new LightningDetector({ calibrationFrames: 2, sensitivity: 1 });

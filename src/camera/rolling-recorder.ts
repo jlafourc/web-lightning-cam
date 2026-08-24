@@ -1,10 +1,9 @@
-import { RollingBuffer } from '../core/rolling-buffer';
-
 interface RecorderLike {
   state: string;
   start(timeslice?: number): void;
   stop(): void;
-  addEventListener(type: 'dataavailable', listener: (event: BlobEvent) => void): void;
+  requestData?(): void;
+  addEventListener(type: string, listener: (event: BlobEvent | Event) => void): void;
 }
 
 interface RollingRecorderOptions {
@@ -12,7 +11,13 @@ interface RollingRecorderOptions {
   preTriggerMs?: number;
   timesliceMs?: number;
   createRecorder?: (stream: MediaStream, options: MediaRecorderOptions) => RecorderLike;
-  now?: () => number;
+}
+
+interface RecordingSession {
+  recorder: RecorderLike;
+  chunks: Blob[];
+  stopped: Promise<void>;
+  resolveStopped: () => void;
 }
 
 export function selectRecorderMimeType(supports: (type: string) => boolean): string {
@@ -26,48 +31,98 @@ export function selectRecorderMimeType(supports: (type: string) => boolean): str
 }
 
 export class RollingRecorder {
-  private readonly recorder: RecorderLike;
-  private readonly buffer: RollingBuffer<Blob>;
+  private readonly stream: MediaStream;
+  private readonly preTriggerMs: number;
   private readonly timesliceMs: number;
-  private readonly now: () => number;
-  private activeCapture?: Blob[];
+  private readonly createRecorder: (stream: MediaStream, options: MediaRecorderOptions) => RecorderLike;
+  private session?: RecordingSession;
+  private rotationTimer?: number;
+  private running = false;
+  private capturing = false;
   readonly mimeType: string;
 
   constructor(options: RollingRecorderOptions) {
+    this.stream = options.stream;
+    this.preTriggerMs = options.preTriggerMs ?? 4000;
     this.timesliceMs = options.timesliceMs ?? 500;
-    this.now = options.now ?? (() => performance.now());
-    this.buffer = new RollingBuffer(options.preTriggerMs ?? 4000);
     const supports = typeof MediaRecorder !== 'undefined' && typeof MediaRecorder.isTypeSupported === 'function'
       ? MediaRecorder.isTypeSupported.bind(MediaRecorder)
       : () => false;
     this.mimeType = selectRecorderMimeType(supports);
-    const createRecorder = options.createRecorder
+    this.createRecorder = options.createRecorder
       ?? ((stream: MediaStream, recorderOptions: MediaRecorderOptions) => new MediaRecorder(stream, recorderOptions));
-    this.recorder = createRecorder(options.stream, this.mimeType ? { mimeType: this.mimeType } : {});
-    this.recorder.addEventListener('dataavailable', (event) => {
-      if (!event.data || event.data.size === 0) return;
-      this.buffer.push(event.data, this.now());
-      this.activeCapture?.push(event.data);
-    });
   }
 
   start(): void {
-    if (this.recorder.state === 'inactive') this.recorder.start(this.timesliceMs);
+    if (this.running) return;
+    this.running = true;
+    this.startSession();
   }
 
   async captureClip(postTriggerMs = 3000): Promise<Blob> {
-    const before = this.buffer.snapshot().map((entry) => entry.value);
-    this.activeCapture = [];
+    if (!this.running || !this.session) throw new Error('L’enregistreur vidéo n’est pas démarré.');
+    this.capturing = true;
+    this.clearRotation();
     await new Promise<void>((resolve) => window.setTimeout(resolve, postTriggerMs));
-    const chunks = [...before, ...this.activeCapture];
-    this.activeCapture = undefined;
-    const type = this.mimeType || chunks[0]?.type || 'video/mp4';
-    return new Blob(chunks, { type });
+    const completed = this.session;
+    const clip = await this.finalize(completed);
+    if (this.running) this.startSession();
+    this.capturing = false;
+    return clip;
   }
 
   stop(): void {
-    if (this.recorder.state !== 'inactive') this.recorder.stop();
-    this.buffer.clear();
-    this.activeCapture = undefined;
+    this.running = false;
+    this.capturing = false;
+    this.clearRotation();
+    const active = this.session;
+    this.session = undefined;
+    if (active && active.recorder.state !== 'inactive') active.recorder.stop();
+  }
+
+  private startSession(): void {
+    const recorderOptions = this.mimeType ? { mimeType: this.mimeType } : {};
+    const recorder = this.createRecorder(this.stream, recorderOptions);
+    let resolveStopped: () => void = () => {};
+    const stopped = new Promise<void>((resolve) => { resolveStopped = resolve; });
+    const session: RecordingSession = { recorder, chunks: [], stopped, resolveStopped };
+    recorder.addEventListener('dataavailable', (event) => {
+      const data = 'data' in event ? event.data : undefined;
+      if (data && data.size > 0) session.chunks.push(data);
+    });
+    recorder.addEventListener('stop', () => session.resolveStopped());
+    this.session = session;
+    recorder.start(this.timesliceMs);
+    this.scheduleRotation();
+  }
+
+  private async rotate(): Promise<void> {
+    if (!this.running || this.capturing || !this.session) return;
+    const completed = this.session;
+    await this.finalize(completed);
+    if (this.running && !this.capturing) this.startSession();
+  }
+
+  private async finalize(session: RecordingSession): Promise<Blob> {
+    this.clearRotation();
+    if (session.recorder.state !== 'inactive') {
+      session.recorder.requestData?.();
+      session.recorder.stop();
+    } else {
+      session.resolveStopped();
+    }
+    await session.stopped;
+    const type = this.mimeType || session.chunks[0]?.type || 'video/mp4';
+    return new Blob(session.chunks, { type });
+  }
+
+  private scheduleRotation(): void {
+    this.clearRotation();
+    this.rotationTimer = window.setTimeout(() => void this.rotate(), this.preTriggerMs);
+  }
+
+  private clearRotation(): void {
+    if (this.rotationTimer !== undefined) window.clearTimeout(this.rotationTimer);
+    this.rotationTimer = undefined;
   }
 }

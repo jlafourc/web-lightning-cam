@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lightning-cam-v1';
+const CACHE_NAME = 'lightning-cam-v2';
 const APP_SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon.svg', './icons/maskable.svg'];
 
 self.addEventListener('install', (event) => {

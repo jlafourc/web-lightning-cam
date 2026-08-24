@@ -9,10 +9,12 @@ export interface DetectorOptions {
 export interface DetectionResult {
   detected: boolean;
   calibrating: boolean;
+  trigger: 'global' | 'localized' | null;
   mean: number;
   baseline: number;
   delta: number;
   brightenedRatio: number;
+  localizedIntensity: number;
   threshold: number;
 }
 
@@ -68,31 +70,43 @@ export class LightningDetector<T = unknown> {
       this.baseline = average(this.calibration);
       this.noise = standardDeviation(this.calibration, this.baseline);
       this.previous = pixels.slice();
-      return this.result(false, this.calibration.length < this.calibrationFrames, mean, 0, 0);
+      return this.result(false, this.calibration.length < this.calibrationFrames, null, mean, 0, 0, 0);
     }
 
     const delta = mean - this.baseline;
     const pixelThreshold = Math.max(12, this.threshold() * 0.65);
     let brightened = 0;
+    let brightenedDelta = 0;
     const previous = this.previous;
     if (previous) {
       const length = Math.min(previous.length, pixels.length);
       for (let index = 0; index < length; index += 1) {
-        if ((pixels[index] ?? 0) - (previous[index] ?? 0) >= pixelThreshold) brightened += 1;
+        const pixelDelta = (pixels[index] ?? 0) - (previous[index] ?? 0);
+        if (pixelDelta >= pixelThreshold) {
+          brightened += 1;
+          brightenedDelta += pixelDelta;
+        }
       }
     }
     const brightenedRatio = pixels.length > 0 ? brightened / pixels.length : 0;
+    const localizedIntensity = brightened > 0 ? brightenedDelta / brightened : 0;
     const threshold = this.threshold();
-    const signalAgreement = delta >= threshold && brightenedRatio >= 0.08;
+    const globalSignal = delta >= threshold && brightenedRatio >= 0.08;
+    const localizedMinimumRatio = 0.012 - this.sensitivity * 0.01;
+    const localizedMinimumIntensity = 55 - this.sensitivity * 20 + this.noise * 3;
+    const localizedSignal = brightenedRatio >= localizedMinimumRatio
+      && brightenedRatio < 0.08
+      && localizedIntensity >= localizedMinimumIntensity;
+    const trigger = globalSignal ? 'global' : localizedSignal ? 'localized' : null;
     const outsideCooldown = timestamp - this.lastDetection >= this.cooldownMs;
-    const detected = signalAgreement && outsideCooldown;
+    const detected = trigger !== null && outsideCooldown;
     if (detected) this.lastDetection = timestamp;
 
     if (!detected && Math.abs(delta) < threshold) {
       this.baseline += this.baselineAlpha * delta;
     }
     this.previous = pixels.slice();
-    return this.result(detected, false, mean, delta, brightenedRatio);
+    return this.result(detected, false, detected ? trigger : null, mean, delta, brightenedRatio, localizedIntensity);
   }
 
   brightestRecentFrame(): RecentFrame<T> | undefined {
@@ -109,17 +123,21 @@ export class LightningDetector<T = unknown> {
   private result(
     detected: boolean,
     calibrating: boolean,
+    trigger: DetectionResult['trigger'],
     mean: number,
     delta: number,
     brightenedRatio: number,
+    localizedIntensity: number,
   ): DetectionResult {
     return {
       detected,
       calibrating,
+      trigger,
       mean,
       baseline: this.baseline,
       delta,
       brightenedRatio,
+      localizedIntensity,
       threshold: this.threshold(),
     };
   }

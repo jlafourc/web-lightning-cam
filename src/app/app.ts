@@ -284,7 +284,7 @@ function template(): string {
       <p id="empty-gallery" class="empty-gallery">Les photos et clips apparaîtront ici. Exporte les meilleurs : iOS peut supprimer les données d’un site.</p>
       <div id="gallery-list" class="gallery-list"></div>
     </section>
-    <footer>Hors ligne après la première visite · aucune donnée envoyée</footer>`;
+    <footer>Version 2 · hors ligne après la première visite · aucune donnée envoyée</footer>`;
 }
 
 function frameBlob(video: HTMLVideoElement): Promise<Blob> {
