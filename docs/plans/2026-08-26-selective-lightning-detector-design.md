@@ -17,9 +17,10 @@ thresholding with a temporal-spatial pipeline:
 3. Measure negative transients and reject frames dominated by bidirectional
    change, which indicates camera motion rather than scene illumination.
 4. Group positive pixels with eight-neighbour connected components.
-5. Accept localized events only when a component has enough area and either a
-   lightning-like elongated shape or a compact illuminated cloud region.
-6. Keep broad, predominantly positive illumination as the global-flash path.
+5. Accept localized events only when a component has enough area and a
+   lightning-like elongated shape; compact local sources are rejected.
+6. Keep broad, predominantly positive illumination as the cloud-flash path,
+   which still accepts diffuse illumination spanning a meaningful image area.
 7. Slow background learning while a candidate is present so the transient is
    not immediately absorbed into the background.
 

@@ -23,6 +23,7 @@ import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import com.lightningcam.detector.DetectionConfig
+import com.lightningcam.detector.DetectionProfile
 import com.lightningcam.detector.LightningDetector
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -70,13 +71,20 @@ class AndroidCameraSession(
     }
     @Volatile private var triggerFrame: LuminanceFrame? = null
     private val analyzer = LightningAnalyzer(
-        detector = LightningDetector(DetectionConfig.field()),
+        detector = LightningDetector(DetectionConfig.runtimeDefault()),
         onDiagnostics = { diagnostics -> mainExecutor.execute { onDiagnostics(diagnostics) } },
         onTrigger = { result, frame, latency ->
             triggerFrame = frame
             mainExecutor.execute { onDetection(result, latency) }
         },
     )
+
+    fun setDetectionProfile(profile: DetectionProfile) {
+        analysisExecutor.execute {
+            analyzer.replaceDetector(LightningDetector(DetectionConfig.forProfile(profile)))
+            mainExecutor.execute { onStatus("Profil ${profile.label()} · recalibrage…") }
+        }
+    }
 
     fun bind() {
         val providerFuture = ProcessCameraProvider.getInstance(context)
@@ -274,5 +282,11 @@ class AndroidCameraSession(
     private fun fileName(prefix: String, extension: String): String {
         val stamp = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US).format(Date())
         return "${prefix}_${stamp}.$extension"
+    }
+
+    private fun DetectionProfile.label() = when (this) {
+        DetectionProfile.STRICT -> "strict"
+        DetectionProfile.BALANCED -> "équilibré"
+        DetectionProfile.SENSITIVE -> "sensible"
     }
 }

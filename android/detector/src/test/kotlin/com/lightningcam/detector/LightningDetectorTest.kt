@@ -83,6 +83,61 @@ class LightningDetectorTest {
     }
 
     @Test
+    fun `rejects scattered bright reflections without a spatial component`() {
+        val detector = LightningDetector(DetectionConfig.runtimeDefault().copy(warmupFrames = 3))
+        repeat(3) { detector.analyze(frame(20, it * 10L)) }
+        val pixels = IntArray(1_000) { 20 }.also { values ->
+            listOf(0, 49, 101, 148, 202, 247, 303, 346, 404, 445, 505, 544).forEach {
+                values[it] = 120
+            }
+        }
+
+        val result = detector.analyze(LuminanceFrame(50, 20, pixels, 100))
+
+        assertNull(result.trigger)
+    }
+
+    @Test
+    fun `rejects a compact local light source`() {
+        val detector = LightningDetector(DetectionConfig.runtimeDefault().copy(warmupFrames = 3))
+        repeat(3) { detector.analyze(frame(20, it * 10L)) }
+        val pixels = IntArray(1_000) { 20 }.also { values ->
+            for (y in 5..8) for (x in 20..23) values[y * 50 + x] = 140
+        }
+
+        val result = detector.analyze(LuminanceFrame(50, 20, pixels, 100))
+
+        assertNull(result.trigger)
+    }
+
+    @Test
+    fun `rejects bidirectional whole-frame camera motion`() {
+        val detector = LightningDetector(DetectionConfig.runtimeDefault().copy(warmupFrames = 3))
+        repeat(3) { detector.analyze(frame(100, it * 10L)) }
+        val moved = IntArray(1_000) { index -> if (index % 2 == 0) 180 else 20 }
+
+        val result = detector.analyze(LuminanceFrame(50, 20, moved, 100))
+
+        assertNull(result.trigger)
+        assertTrue(result.motionRejected)
+    }
+
+    @Test
+    fun `rejects a connected fluctuation consistent with learned pixel noise`() {
+        val detector = LightningDetector(DetectionConfig.runtimeDefault().copy(warmupFrames = 6))
+        repeat(6) { frameIndex ->
+            val noisy = IntArray(1_000) { 20 }
+            repeat(5) { y -> noisy[y * 50 + 10] = if (frameIndex % 2 == 0) 20 else 100 }
+            detector.analyze(LuminanceFrame(50, 20, noisy, frameIndex * 10L))
+        }
+        val fluctuation = IntArray(1_000) { 20 }.also { values ->
+            repeat(5) { y -> values[y * 50 + 10] = 100 }
+        }
+
+        assertNull(detector.analyze(LuminanceFrame(50, 20, fluctuation, 100)).trigger)
+    }
+
+    @Test
     fun `suppresses triggers during refractory period`() {
         val detector = warmedDetector()
 

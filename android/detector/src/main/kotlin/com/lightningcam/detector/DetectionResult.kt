@@ -8,4 +8,7 @@ data class DetectionResult(
     val localizedScore: Double,
     val changedPixelRatio: Double,
     val warmedUp: Boolean,
+    val motionRejected: Boolean = false,
+    val negativeChangedRatio: Double = 0.0,
+    val largestComponentPixels: Int = 0,
 )

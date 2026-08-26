@@ -37,6 +37,9 @@ import com.lightningcam.camera.AndroidCameraSession
 import com.lightningcam.camera.AnalyzerDiagnostics
 import com.lightningcam.camera.CaptureCoordinator
 import com.lightningcam.camera.CapturePort
+import com.lightningcam.camera.DetectionProfileController
+import com.lightningcam.detector.DetectionConfig
+import com.lightningcam.detector.DetectionProfile
 import com.lightningcam.storage.InMemoryEventRepository
 import java.util.Locale
 
@@ -52,6 +55,10 @@ fun LightningCamApp() {
         var diagnostics by remember {
             mutableStateOf(AnalyzerDiagnostics(0, 0, 0.0, 0.0, 0.0, 0.0))
         }
+        val profileController = remember { DetectionProfileController() }
+        var profile by remember { mutableStateOf(profileController.current) }
+        var cameraSession by remember { mutableStateOf<AndroidCameraSession?>(null) }
+        val profileConfig = remember(profile) { DetectionConfig.forProfile(profile) }
         val armedNow by rememberUpdatedState(armed)
         val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
             permissionGranted = it
@@ -65,12 +72,12 @@ fun LightningCamApp() {
             val previewView = remember { PreviewView(context).apply { scaleType = PreviewView.ScaleType.FILL_CENTER } }
             val repository = remember { InMemoryEventRepository() }
             DisposableEffect(previewView, lifecycleOwner) {
-                lateinit var session: AndroidCameraSession
+                lateinit var createdSession: AndroidCameraSession
                 val coordinator = CaptureCoordinator(
-                    capturePort = CapturePort { completion -> session.capture(completion) },
+                    capturePort = CapturePort { completion -> createdSession.capture(completion) },
                     repository = repository,
                 )
-                session = AndroidCameraSession(
+                createdSession = AndroidCameraSession(
                     context = context,
                     lifecycleOwner = lifecycleOwner,
                     previewView = previewView,
@@ -78,8 +85,12 @@ fun LightningCamApp() {
                     onDiagnostics = { diagnostics = it },
                     onStatus = { status = it },
                 )
-                session.bind()
-                onDispose { session.close() }
+                cameraSession = createdSession
+                createdSession.bind()
+                onDispose {
+                    createdSession.close()
+                    if (cameraSession === createdSession) cameraSession = null
+                }
             }
 
             Box(Modifier.fillMaxSize()) {
@@ -96,7 +107,8 @@ fun LightningCamApp() {
                     Text(
                         String.format(
                             Locale.US,
-                            "Terrain · %,d images · %.1f ms",
+                            "%s · %,d images · %.1f ms",
+                            profile.label(),
                             diagnostics.frames,
                             diagnostics.lastLatencyMs,
                         ),
@@ -105,9 +117,11 @@ fun LightningCamApp() {
                     Text(
                         String.format(
                             Locale.US,
-                            "G %.1f/12 · L %.1f/30 · Δ %.2f%%",
+                            "G %.1f/%.0f · L %.1f/%.0f · Δ %.2f%%",
                             diagnostics.globalScore,
+                            profileConfig.globalMeanDelta,
                             diagnostics.localizedScore,
+                            profileConfig.localizedMeanDelta,
                             diagnostics.changedPixelRatio * 100.0,
                         ),
                         style = MaterialTheme.typography.labelSmall,
@@ -126,6 +140,12 @@ fun LightningCamApp() {
                         Text(if (armed) "ARMÉ" else "PAUSE", color = if (armed) Color(0xff86efac) else Color.LightGray)
                         Text("Photos : Pictures/LightningCam", style = MaterialTheme.typography.labelSmall)
                     }
+                    Button(onClick = {
+                        profile = profileController.next()
+                        cameraSession?.setDetectionProfile(profile)
+                    }) {
+                        Text(profile.shortLabel())
+                    }
                     Button(onClick = { armed = !armed }) {
                         Text(if (armed) "Désarmer" else "Armer")
                     }
@@ -133,6 +153,18 @@ fun LightningCamApp() {
             }
         }
     }
+}
+
+private fun DetectionProfile.label() = when (this) {
+    DetectionProfile.STRICT -> "Strict"
+    DetectionProfile.BALANCED -> "Équilibré"
+    DetectionProfile.SENSITIVE -> "Sensible"
+}
+
+private fun DetectionProfile.shortLabel() = when (this) {
+    DetectionProfile.STRICT -> "STRICT"
+    DetectionProfile.BALANCED -> "ÉQUIL."
+    DetectionProfile.SENSITIVE -> "SENS."
 }
 
 @Composable

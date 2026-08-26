@@ -23,7 +23,7 @@ data class AnalyzerDiagnostics(
 )
 
 class LightningAnalyzer(
-    private val detector: LightningDetector,
+    private var detector: LightningDetector,
     private val diagnosticsEveryFrames: Long = 15,
     private val onDiagnostics: (AnalyzerDiagnostics) -> Unit = {},
     private val onTrigger: (DetectionResult, com.lightningcam.detector.LuminanceFrame, Double) -> Unit = { _, _, _ -> },
@@ -37,6 +37,13 @@ class LightningAnalyzer(
 
     init {
         require(diagnosticsEveryFrames > 0)
+    }
+
+    fun replaceDetector(detector: LightningDetector) {
+        this.detector = detector
+        globalScore = 0.0
+        localizedScore = 0.0
+        changedPixelRatio = 0.0
     }
 
     fun analyze(input: LuminanceInput) {

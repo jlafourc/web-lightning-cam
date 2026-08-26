@@ -40,7 +40,7 @@
 - Test: `android/detector/src/test/kotlin/com/lightningcam/detector/TransientComponentsTest.kt`
 - Modify: `android/detector/src/main/kotlin/com/lightningcam/detector/LightningDetector.kt`
 
-1. Write failing tests for connected bolts, compact cloud regions, isolated points, and scattered reflections.
+1. Write failing tests for connected bolts, broad cloud illumination, compact local lights, isolated points, and scattered reflections.
 2. Run focused tests and verify red.
 3. Implement bounded eight-neighbour component extraction and shape statistics.
 4. Integrate component acceptance into localized triggering.
